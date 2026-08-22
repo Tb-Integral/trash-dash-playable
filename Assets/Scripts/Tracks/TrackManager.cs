@@ -304,6 +304,9 @@ public class TrackManager : MonoBehaviour
     {
         while (_spawnedSegments < (m_IsTutorial ? 4 : k_DesiredSegmentCount))
         {
+            if (PlayableSegmentQueue.IsActive && !PlayableSegmentQueue.HasRemaining)
+                break;
+
             StartCoroutine(SpawnNewSegment());
             _spawnedSegments++;
         }
@@ -495,14 +498,22 @@ public class TrackManager : MonoBehaviour
                 ChangeZone();
         }
 
-        int segmentUse = Random.Range(0, m_CurrentThemeData.zones[m_CurrentZone].prefabList.Length);
-        if (segmentUse == m_PreviousSegment) segmentUse = (segmentUse + 1) % m_CurrentThemeData.zones[m_CurrentZone].prefabList.Length;
+        AssetReference chosenSegment;
+        bool playableTail = false;
+        if (!PlayableSegmentQueue.TryGetNext(out chosenSegment, out playableTail))
+        {
+            int segmentUse = Random.Range(0, m_CurrentThemeData.zones[m_CurrentZone].prefabList.Length);
+            if (segmentUse == m_PreviousSegment)
+                segmentUse = (segmentUse + 1) % m_CurrentThemeData.zones[m_CurrentZone].prefabList.Length;
 
-        AsyncOperationHandle segmentToUseOp = m_CurrentThemeData.zones[m_CurrentZone].prefabList[segmentUse].InstantiateAsync(_offScreenSpawnPos, Quaternion.identity);
+            chosenSegment = m_CurrentThemeData.zones[m_CurrentZone].prefabList[segmentUse];
+        }
+
+        AsyncOperationHandle segmentToUseOp = chosenSegment.InstantiateAsync(_offScreenSpawnPos, Quaternion.identity);
         yield return segmentToUseOp;
         if (segmentToUseOp.Result == null || !(segmentToUseOp.Result is GameObject))
         {
-            Debug.LogWarning(string.Format("Unable to load segment {0}.", m_CurrentThemeData.zones[m_CurrentZone].prefabList[segmentUse].Asset.name));
+            Debug.LogWarning(string.Format("Unable to load segment {0}.", chosenSegment.AssetGUID));
             yield break;
         }
         TrackSegment newSegment = (segmentToUseOp.Result as GameObject).GetComponent<TrackSegment>();
@@ -530,14 +541,16 @@ public class TrackManager : MonoBehaviour
         newSegment.transform.position = pos;
         newSegment.manager = this;
 
-        newSegment.transform.localScale = new Vector3((Random.value > 0.5f ? -1 : 1), 1, 1);
+        if (PlayableSegmentQueue.IsActive)
+            newSegment.transform.localScale = Vector3.one;
+        else
+            newSegment.transform.localScale = new Vector3(Random.value > 0.5f ? -1 : 1, 1, 1);
+
         newSegment.objectRoot.localScale = new Vector3(1.0f / newSegment.transform.localScale.x, 1, 1);
 
-        if (m_SafeSegementLeft <= 0)
-        {
+        if (m_SafeSegementLeft <= 0 && !playableTail)
             SpawnObstacle(newSegment);
-        }
-        else
+        else if (m_SafeSegementLeft > 0)
             m_SafeSegementLeft -= 1;
 
         m_Segments.Add(newSegment);

@@ -69,6 +69,8 @@ public class CharacterInputController : MonoBehaviour
 
     protected readonly Vector3 k_StartingPosition = Vector3.forward * 2f;
 
+    public int CurrentLane { get { return m_CurrentLane; } }
+
     protected const int k_StartingLane = 1;
     protected const float k_GroundingSpeed = 80f;
     protected const float k_ShadowRaycastDistance = 100f;
@@ -382,6 +384,8 @@ public class CharacterInputController : MonoBehaviour
     {
 		if (!m_IsRunning)
 			return;
+		
+		PlayableSwipeHint.NotifyLaneChanged();
 
         int targetLane = m_CurrentLane + direction;
 

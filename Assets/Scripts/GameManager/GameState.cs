@@ -219,7 +219,8 @@ public class GameState : AState
                 chrCtrl.CleanConsumable();
                 chrCtrl.character.animator.SetBool(s_DeadHash, true);
                 chrCtrl.characterCollider.koParticle.gameObject.SetActive(true);
-                StartCoroutine(WaitForGameOver());
+                if (!PlayableSegmentQueue.IsActive)
+                    StartCoroutine(WaitForGameOver());
             }
 
             // Consumable ticking & lifetime management
@@ -291,6 +292,9 @@ public class GameState : AState
 
     public void Pause(bool displayMenu = true)
 	{
+        if (PlayableSegmentQueue.IsActive)
+		return;
+        
 		//check if we aren't finished OR if we aren't already in pause (as that would mess states)
 		if (m_Finished || AudioListener.pause == true)
 			return;
