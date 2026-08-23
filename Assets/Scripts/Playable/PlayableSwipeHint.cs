@@ -4,139 +4,158 @@ public class PlayableSwipeHint : MonoBehaviour
 {
     public static PlayableSwipeHint Instance { get; private set; }
 
-    [SerializeField] GameObject hintRoot;
-    [SerializeField] RectTransform handRoot;
-    [SerializeField] float showAtRatio = 0.35f;
     [SerializeField] float hintTimeScale = 0.4f;
+    [SerializeField] GameObject laneHintRoot;
+    [SerializeField] GameObject jumpHintRoot;
+    [SerializeField] GameObject slideHintRoot;
 
     bool _shown;
-    bool _done;
-    TrackSegment _skippedSegment;
+    bool _inputUnlocked;
+    TrackSegment _activeSegment;
+    TrackSegment _handledSegment;
+    PlayableGestureHint _expectedGesture;
+    GameObject _activeHintRoot;
+
+    public static bool CanUseInput =>
+    !PlayableSegmentQueue.IsActive ||
+    (Instance != null && Instance._inputUnlocked);
 
     void Awake()
     {
         Instance = this;
-        if (hintRoot != null)
-            hintRoot.SetActive(false);
+        SetHintRootsActive(false);
+    }
+
+    void SetHintRootsActive(bool value)
+    {
+        if (laneHintRoot != null)
+            laneHintRoot.SetActive(value);
+
+        if (jumpHintRoot != null)
+            jumpHintRoot.SetActive(value);
+
+        if (slideHintRoot != null)
+            slideHintRoot.SetActive(value);
+    }
+
+    GameObject GetHintRoot(PlayableGestureHint gesture)
+    {
+        switch (gesture)
+        {
+            case PlayableGestureHint.Lane:
+                return laneHintRoot;
+            case PlayableGestureHint.Jump:
+                return jumpHintRoot;
+            case PlayableGestureHint.Slide:
+                return slideHintRoot;
+            default:
+                return null;
+        }
     }
 
     public static void NotifyLaneChanged()
     {
-        if (Instance != null && Instance._shown)
+        NotifyGesture(PlayableGestureHint.Lane);
+    }
+
+    public static void NotifyJump()
+    {
+        NotifyGesture(PlayableGestureHint.Jump);
+    }
+
+    public static void NotifySlide()
+    {
+        NotifyGesture(PlayableGestureHint.Slide);
+    }
+
+    public static void DismissCurrent()
+    {
+        if (Instance != null)
             Instance.Dismiss();
+    }
+
+    static void NotifyGesture(PlayableGestureHint gesture)
+    {
+        if (Instance != null &&
+            Instance._shown &&
+            Instance._expectedGesture == gesture)
+        {
+            Instance.Dismiss();
+        }
     }
 
     void LateUpdate()
     {
-        if (_done || _shown || !PlayableSegmentQueue.IsActive)
+        if (_shown || !PlayableSegmentQueue.IsActive)
             return;
 
         TrackManager tm = TrackManager.instance;
-        if (tm == null || !tm.isLoaded || !tm.isMoving || tm.currentSegment == null)
-            return;
-
-        if (tm.currentSegment == _skippedSegment)
-            return;
-
-        SimpleBarricade[] bins = tm.currentSegment.GetComponentsInChildren<SimpleBarricade>(true);
-        if (bins.Length == 0)
-            return;
-
-        float ratio = tm.currentSegmentDistance / tm.currentSegment.worldLength;
-        if (ratio < showAtRatio)
-            return;
-
-        int dir;
-        if (!TryGetOneSwipe(tm, bins, out dir))
+        if (tm == null || !tm.isLoaded || !tm.isMoving ||
+            tm.currentSegment == null ||
+            tm.currentSegment == _handledSegment)
         {
-            _skippedSegment = tm.currentSegment;
             return;
         }
 
-        if (handRoot != null)
-        {
-            Vector3 s = handRoot.localScale;
-            s.x = dir < 0 ? -1f : 1f;
-            handRoot.localScale = s;
-        }
+        PlayableAuthoredSegment authored =
+            tm.currentSegment.GetComponent<PlayableAuthoredSegment>();
 
-        _shown = true;
-        Time.timeScale = hintTimeScale;
-        if (hintRoot != null)
-            hintRoot.SetActive(true);
-        SampleHandAtStart();
+        if (authored == null || authored.Hint == PlayableGestureHint.None)
+            return;
+
+        float ratio =
+            tm.currentSegmentDistance / tm.currentSegment.worldLength;
+
+        if (ratio < authored.HintAtRatio)
+            return;
+
+        Show(tm.currentSegment, authored);
     }
 
-    void SampleHandAtStart()
+    void Show(TrackSegment segment, PlayableAuthoredSegment authored)
     {
-        if (handRoot == null)
+        _activeSegment = segment;
+        _expectedGesture = authored.Hint;
+        _activeHintRoot = GetHintRoot(authored.Hint);
+
+        if (_activeHintRoot == null)
             return;
-        Animation anim = handRoot.GetComponentInChildren<Animation>(true);
-        if (anim == null || anim.clip == null)
-            return;
-        anim.Play();
-        anim[anim.clip.name].time = 0f;
-        anim.Sample();
+
+        _inputUnlocked = true;
+        _shown = true;
+        Time.timeScale = hintTimeScale;
+        _activeHintRoot.SetActive(true);
+
+        Animation anim =
+            _activeHintRoot.GetComponentInChildren<Animation>(true);
+
+        if (anim != null)
+        {
+            anim.Rewind();
+            anim.Play();
+
+            if (anim.clip != null)
+            {
+                AnimationState state = anim[anim.clip.name];
+                if (state != null)
+                    state.speed = 1f / Mathf.Max(hintTimeScale, 0.01f);
+            }
+        }
     }
 
     void Dismiss()
     {
-        if (_done)
+        if (!_shown)
             return;
-        _done = true;
+
+        _handledSegment = _activeSegment;
+        _activeSegment = null;
+        _shown = false;
         Time.timeScale = 1f;
-        if (hintRoot != null)
-            hintRoot.SetActive(false);
-    }
 
-    static bool TryGetOneSwipe(TrackManager tm, SimpleBarricade[] bins, out int dir)
-    {
-        dir = 0;
-        int player = tm.characterController.CurrentLane;
-        bool[] occupied = new bool[3];
+        if (_activeHintRoot != null)
+            _activeHintRoot.SetActive(false);
 
-        for (int i = 0; i < bins.Length; i++)
-        {
-            int lane = Mathf.RoundToInt(LateralOffset(tm.currentSegment, bins[i]) / tm.laneOffset) + 1;
-            if (lane >= 0 && lane <= 2)
-                occupied[lane] = true;
-        }
-
-        if (!occupied[player])
-            return false;
-
-        bool left = player > 0 && !occupied[player - 1];
-        bool right = player < 2 && !occupied[player + 1];
-        if (!left && !right)
-            return false;
-
-        dir = (right && !left) ? 1 : (left && !right) ? -1 : 1;
-        return true;
-    }
-
-    static float LateralOffset(TrackSegment seg, SimpleBarricade bin)
-    {
-        Vector3 pathPos = bin.transform.position;
-        Quaternion pathRot = bin.transform.rotation;
-        float best = float.MaxValue;
-        float[] ts = seg.obstaclePositions;
-        if (ts != null)
-        {
-            for (int i = 0; i < ts.Length; i++)
-            {
-                Vector3 p;
-                Quaternion r;
-                seg.GetPointAt(ts[i], out p, out r);
-                float d = (bin.transform.position - p).sqrMagnitude;
-                if (d < best)
-                {
-                    best = d;
-                    pathPos = p;
-                    pathRot = r;
-                }
-            }
-        }
-
-        return Vector3.Dot(bin.transform.position - pathPos, pathRot * Vector3.right);
+        _activeHintRoot = null;
     }
 }

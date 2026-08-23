@@ -123,7 +123,7 @@ public class TrackManager : MonoBehaviour
     protected const float k_CountdownToStartLength = 5f;
     protected const float k_CountdownSpeed = 1.5f;
     protected const float k_StartingSegmentDistance = 2f;
-    protected const int k_StartingSafeSegments = 2;
+    protected const int k_StartingSafeSegments = 1;
     protected const int k_StartingCoinPoolSize = 256;
     protected const int k_DesiredSegmentCount = 10;
     protected const float k_SegmentRemovalDistance = -30f;
@@ -300,15 +300,29 @@ public class TrackManager : MonoBehaviour
 
     private int _parallaxRootChildren = 0;
     private int _spawnedSegments = 0;
+    private bool _playableSegmentSpawnInProgress;
     void Update()
     {
-        while (_spawnedSegments < (m_IsTutorial ? 4 : k_DesiredSegmentCount))
-        {
-            if (PlayableSegmentQueue.IsActive && !PlayableSegmentQueue.HasRemaining)
-                break;
+        int desiredSegmentCount = m_IsTutorial ? 4 : k_DesiredSegmentCount;
 
-            StartCoroutine(SpawnNewSegment());
-            _spawnedSegments++;
+        if (PlayableSegmentQueue.IsActive)
+        {
+            if (!_playableSegmentSpawnInProgress &&
+                _spawnedSegments < desiredSegmentCount &&
+                PlayableSegmentQueue.HasRemaining)
+            {
+                _playableSegmentSpawnInProgress = true;
+                _spawnedSegments++;
+                StartCoroutine(SpawnPlayableSegmentSequentially());
+            }
+        }
+        else
+        {
+            while (_spawnedSegments < desiredSegmentCount)
+            {
+                StartCoroutine(SpawnNewSegment());
+                _spawnedSegments++;
+            }
         }
 
         if (parallaxRoot != null && currentTheme.cloudPrefabs.Length > 0)
@@ -548,14 +562,29 @@ public class TrackManager : MonoBehaviour
 
         newSegment.objectRoot.localScale = new Vector3(1.0f / newSegment.transform.localScale.x, 1, 1);
 
-        if (m_SafeSegementLeft <= 0 && !playableTail)
+        bool hasAuthoredLayout =
+            PlayableSegmentQueue.IsActive &&
+            newSegment.GetComponent<PlayableAuthoredSegment>() != null;
+
+        if (m_SafeSegementLeft > 0)
+        {
+            m_SafeSegementLeft--;
+        }
+        else if (!playableTail && !hasAuthoredLayout)
+        {
             SpawnObstacle(newSegment);
-        else if (m_SafeSegementLeft > 0)
-            m_SafeSegementLeft -= 1;
+        }
+
 
         m_Segments.Add(newSegment);
 
         if (newSegmentCreated != null) newSegmentCreated.Invoke(newSegment);
+    }
+
+    private IEnumerator SpawnPlayableSegmentSequentially()
+    {
+        yield return SpawnNewSegment();
+        _playableSegmentSpawnInProgress = false;
     }
 
 
@@ -578,6 +607,7 @@ public class TrackManager : MonoBehaviour
         AsyncOperationHandle op = Addressables.LoadAssetAsync<GameObject>(reference);
         yield return op; 
         GameObject obj = op.Result as GameObject;
+        
         if (obj != null)
         {
             Obstacle obstacle = obj.GetComponent<Obstacle>();
@@ -594,8 +624,15 @@ public class TrackManager : MonoBehaviour
             float currentWorldPos = 0.0f;
             int currentLane = Random.Range(0, 3);
 
-            float powerupChance = Mathf.Clamp01(Mathf.Floor(m_TimeSincePowerup) * 0.5f * 0.001f);
-            float premiumChance = Mathf.Clamp01(Mathf.Floor(m_TimeSinceLastPremium) * 0.5f * 0.0001f);
+            bool isPlayable = PlayableSegmentQueue.IsActive;
+
+            float powerupChance = isPlayable
+                ? 0.0f
+                : Mathf.Clamp01(Mathf.Floor(m_TimeSincePowerup) * 0.5f * 0.001f);
+
+            float premiumChance = isPlayable
+                ? 0.0f
+                : Mathf.Clamp01(Mathf.Floor(m_TimeSinceLastPremium) * 0.5f * 0.0001f);
 
             while (currentWorldPos < segment.worldLength)
             {

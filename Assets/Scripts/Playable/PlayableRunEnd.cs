@@ -51,7 +51,7 @@ public class PlayableRunEnd : MonoBehaviour
     void EndRun(TrackManager tm, bool won)
     {
         if (PlayableSwipeHint.Instance != null)
-            PlayableSwipeHint.NotifyLaneChanged();
+            PlayableSwipeHint.DismissCurrent();
 
         _ended = true;
         Time.timeScale = 1f;

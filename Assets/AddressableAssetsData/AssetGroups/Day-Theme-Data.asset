@@ -10,24 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
-  m_Name: Default-Zones
+  m_Name: Day-Theme-Data
   m_EditorClassIdentifier: 
-  m_GroupName: Default-Zones
+  m_GroupName: Day-Theme-Data
   m_Data:
     m_SerializedData: []
-  m_GUID: 0188ddff47d9b214ba640c0e529e4332
+  m_GUID: 39cca0338cf24d84983f02f76cd584ea
   m_SerializeEntries:
-  - m_GUID: 1094dfec7b4011442b3be72a5e20bf45
-    m_Address: Assets/Bundles/Themes/Default/Urban
+  - m_GUID: 0d80a5ee0a199154784a904ed88da003
+    m_Address: themeData
     m_ReadOnly: 0
-    m_SerializedLabels: []
-  - m_GUID: 18779398815228c4ab638e64c5482b51
-    m_Address: Assets/Bundles/Themes/Default/Suburbs
-    m_ReadOnly: 0
-    m_SerializedLabels: []
+    m_SerializedLabels:
+    - themeData
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 735e874f947d0e143a6b4e83f8a7283a, type: 2}
   m_SchemaSet:
     m_Schemas:
-    - {fileID: 11400000, guid: 12eae49895653ee40960355053e44bd4, type: 2}
-    - {fileID: 11400000, guid: 651de64b823f4894886e1a0af5fc5503, type: 2}
+    - {fileID: 11400000, guid: 6c09db96b6b7c484bb3414ebd9b1602a, type: 2}
+    - {fileID: 11400000, guid: 52a35c444b2203d4ea3bf4ad92981406, type: 2}

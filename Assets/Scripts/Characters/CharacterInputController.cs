@@ -317,8 +317,8 @@ public class CharacterInputController : MonoBehaviour
 
     public void Jump()
     {
-	    if (!m_IsRunning)
-		    return;
+	    if (!m_IsRunning || !PlayableSwipeHint.CanUseInput)
+			return;
 	    
         if (!m_Jumping)
         {
@@ -333,6 +333,7 @@ public class CharacterInputController : MonoBehaviour
             character.animator.SetBool(s_JumpingHash, true);
 			m_Audio.PlayOneShot(character.jumpSound);
 			m_Jumping = true;
+			PlayableSwipeHint.NotifyJump();
         }
     }
 
@@ -347,7 +348,7 @@ public class CharacterInputController : MonoBehaviour
 
 	public void Slide()
 	{
-		if (!m_IsRunning)
+		if (!m_IsRunning || !PlayableSwipeHint.CanUseInput)
 			return;
 		
 		if (!m_Sliding)
@@ -364,6 +365,7 @@ public class CharacterInputController : MonoBehaviour
 			character.animator.SetBool(s_SlidingHash, true);
 			m_Audio.PlayOneShot(slideSound);
 			m_Sliding = true;
+			PlayableSwipeHint.NotifySlide();
 
 			characterCollider.Slide(true);
 		}
@@ -381,21 +383,21 @@ public class CharacterInputController : MonoBehaviour
 	}
 
 	public void ChangeLane(int direction)
-    {
-		if (!m_IsRunning)
-			return;
-		
-		PlayableSwipeHint.NotifyLaneChanged();
+{
+    if (!m_IsRunning || !PlayableSwipeHint.CanUseInput)
+        return;
 
-        int targetLane = m_CurrentLane + direction;
+    int targetLane = m_CurrentLane + direction;
 
-        if (targetLane < 0 || targetLane > 2)
-            // Ignore, we are on the borders.
-            return;
+    if (targetLane < 0 || targetLane > 2)
+        return;
 
-        m_CurrentLane = targetLane;
-        m_TargetPosition = new Vector3((m_CurrentLane - 1) * trackManager.laneOffset, 0, 0);
-    }
+    m_CurrentLane = targetLane;
+    m_TargetPosition = new Vector3(
+        (m_CurrentLane - 1) * trackManager.laneOffset, 0, 0);
+
+    PlayableSwipeHint.NotifyLaneChanged();
+}
 
     public void UseInventory()
     {

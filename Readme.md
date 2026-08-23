@@ -43,7 +43,7 @@ If you reuse this repo, keep Unity attribution and do not claim the original Tra
 
 ## Playable prototype
 
-**Option B — authored sequence**, using Trash Dash mechanics:
+**Authored sequence**, using Trash Dash mechanics:
 
 Intro → one swipe hint → collect coins (lane change) → jump → slide → Win / Fail → End Card → PLAY NOW
 
