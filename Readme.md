@@ -10,7 +10,7 @@ This is a learning / portfolio derivative. It is **not** an official Unity proje
 | Render pipeline | URP 12.1.7 |
 | Content | Addressables 1.19.19 |
 | Playable concept | **B** — authored ~20s sequence (not a timer on endless mode) |
-| Status | Gameplay prototype playable in Editor. Size / Playworks packaging not started. |
+| Status | Gameplay prototype + first WebGL size pass. Dual path (playable + original game) still works in Editor. Playworks / network packaging not started. |
 
 ## Attribution
 
@@ -38,7 +38,7 @@ If you reuse this repo, keep Unity attribution and do not claim the original Tra
 | Authored playable sequence | Done (Editor prototype) |
 | Swipe hint / win / fail / end card / CTA | Done |
 | Strip shop, extra characters, unused themes | Not started |
-| Size optimization vs baseline | Not started |
+| Size optimization vs baseline | First pass on playable WebGL (see log below). Not a 5 MB network creative. |
 | Unity Playworks / network MRAID wrapper | Not started |
 
 ## Playable prototype
@@ -120,4 +120,22 @@ Wiki: [EndlessRunnerSampleGame wiki](https://github.com/Unity-Technologies/Endle
 
 ## Optimization log
 
-None yet. The table above is the **before** column, taken on the original game. Playable gameplay exists; the next measurement pass will be against that same table after content strip and WebGL settings change.
+Baseline column above is the **original** `Start.unity` Release WebGL (**51.74 MB** on disk), taken before playable work.
+
+Playable WebGL (Build Settings: Playable + Main only; Start/Shop disabled). Unity Build Report, **last** block in `Editor.log` (the log appends; do not read the first report).
+
+| Step | Complete build | User assets | Notes |
+|---|---|---|---|
+| Playable WebGL before this pass | **48.8 MB** | 54.2 MB uncompressed | Same project, playable scenes. Sounds 36.1 MB, textures 16.4 MB |
+| Stem Vorbis / compressed-in-memory | 40.2 MB | 43.2 MB | Six speed stems still referenced |
+| WebGL texture max size + compression | 36.1 MB | 33.5 MB | Atlas, store icon, world textures |
+| Playable `MusicPlayer` (one stem on Main) | 21.7 MB | 15.0 MB | Extra stems stay on original `MusicPlayer` in Start |
+| Drop MenuTheme from Main / playable player | 20.2 MB | 13.4 MB | Original loadout still has the clip on Start |
+| ASCII `LuckiestGuy` atlas | 19.9 MB | 11.7 MB | TTF dropped off the report; Complete barely moved (compressed well already) |
+| Drop DeathLoop from Main | **18.9 MB** | **10.6 MB** | Game-over jingle stays on the original Start path |
+
+Uncompressed rows in the report are **not** download size. Complete build is the better player-folder signal. Remaining ~8 MB (Complete − user assets) is engine / code, not PNG/ogg.
+
+Still in the playable report: `STEMSMainTrackMono.ogg` ~3.7 MB, `UISpritesheet.png` ~1.5 MB, URP `UberPost` ~0.4 MB. Do not strip those without a new measurement. **Do not** treat this as a 5 MB network playable; `.wasm` was already 7.1 MB on the original Release baseline.
+
+Playworks / IL2CPP / heap / quality: not in this pass. Measure `.wasm` and `.data` as a new column before touching them.
