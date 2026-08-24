@@ -188,6 +188,11 @@ public class TrackManager : MonoBehaviour
             m_CurrentSegmentDistance = k_StartingSegmentDistance;
             m_TotalWorldDistance = 0.0f;
 
+            if (PlayableSegmentQueue.IsActive)
+            {
+                m_CurrentSegmentDistance = 16f;
+                m_TotalWorldDistance = 16f;
+            }
             characterController.gameObject.SetActive(true);
 
             //Addressables 1.0.1-preview
@@ -352,7 +357,11 @@ public class TrackManager : MonoBehaviour
         }
 
         if (!m_IsMoving)
+        {
+            if (PlayableSegmentQueue.IsActive && m_Segments.Count > 0)
+                ApplySplinePose();
             return;
+        }
 
         float scaledSpeed = m_Speed * Time.deltaTime;
         m_ScoreAccum += scaledSpeed;
@@ -488,6 +497,18 @@ public class TrackManager : MonoBehaviour
         MusicPlayer.instance.UpdateVolumes(speedRatio);
     }
 
+    void ApplySplinePose()
+    {
+        Vector3 currentPos;
+        Quaternion currentRot;
+        Transform characterTransform = characterController.transform;
+
+        m_Segments[0].GetPointAtInWorldUnit(m_CurrentSegmentDistance, out currentPos, out currentRot);
+
+        characterTransform.rotation = currentRot;
+        characterTransform.position = currentPos;
+    }
+
     public void PowerupSpawnUpdate()
     {
         m_TimeSincePowerup += Time.deltaTime;
@@ -574,7 +595,6 @@ public class TrackManager : MonoBehaviour
         {
             SpawnObstacle(newSegment);
         }
-
 
         m_Segments.Add(newSegment);
 
