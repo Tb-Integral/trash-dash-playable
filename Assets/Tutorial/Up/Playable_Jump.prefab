@@ -216,8 +216,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   hint: 2
-  hintAtRatio: 0.3
-  swipeRight: 0
+  hintAtRatio: 0.35
 --- !u!1001 &4837164481267493213
 PrefabInstance:
   m_ObjectHideFlags: 0
