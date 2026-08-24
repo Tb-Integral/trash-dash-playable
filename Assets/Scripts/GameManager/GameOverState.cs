@@ -37,7 +37,7 @@ public class GameOverState : AState
 
 		CreditCoins();
 
-		if (MusicPlayer.instance.GetStem(0) != gameOverTheme)
+		if (gameOverTheme != null && MusicPlayer.instance.GetStem(0) != gameOverTheme)
 		{
             MusicPlayer.instance.SetStem(0, gameOverTheme);
 			StartCoroutine(MusicPlayer.instance.RestartAllStems());
