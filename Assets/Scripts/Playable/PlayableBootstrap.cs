@@ -8,6 +8,30 @@ public class PlayableBootstrap : MonoBehaviour
     [SerializeField] GameObject loadingCover;
     [SerializeField] int readySegmentCount = 4;
 
+    bool _pausedByNetwork;
+    bool _wasMoving;
+    float _timeScaleBeforePause = 1f;
+
+    void OnEnable()
+    {
+#if UNITY_LUNA
+        Luna.Unity.LifeCycle.OnPause += OnNetworkPause;
+        Luna.Unity.LifeCycle.OnResume += OnNetworkResume;
+        Luna.Unity.LifeCycle.OnMute += OnNetworkMute;
+        Luna.Unity.LifeCycle.OnUnmute += OnNetworkUnmute;
+#endif
+    }
+
+    void OnDestroy()
+    {
+#if UNITY_LUNA
+        Luna.Unity.LifeCycle.OnPause -= OnNetworkPause;
+        Luna.Unity.LifeCycle.OnResume -= OnNetworkResume;
+        Luna.Unity.LifeCycle.OnMute -= OnNetworkMute;
+        Luna.Unity.LifeCycle.OnUnmute -= OnNetworkUnmute;
+#endif
+    }
+
     IEnumerator Start()
     {
         DontDestroyOnLoad(gameObject);
@@ -50,5 +74,46 @@ public class PlayableBootstrap : MonoBehaviour
 
         if (loadingCover != null)
             loadingCover.SetActive(false);
+    }
+
+    void OnNetworkPause()
+    {
+        if (_pausedByNetwork)
+            return;
+
+        _pausedByNetwork = true;
+        _timeScaleBeforePause = Time.timeScale;
+        Time.timeScale = 0f;
+
+        TrackManager tm = TrackManager.instance;
+        if (tm != null)
+        {
+            _wasMoving = tm.isMoving;
+            tm.StopMove();
+        }
+    }
+
+    void OnNetworkResume()
+    {
+        if (!_pausedByNetwork)
+            return;
+
+        _pausedByNetwork = false;
+        Time.timeScale = _timeScaleBeforePause > 0.01f ? _timeScaleBeforePause : 1f;
+
+        if (_wasMoving && TrackManager.instance != null)
+            TrackManager.instance.StartMove(false);
+    }
+
+    void OnNetworkMute()
+    {
+        if (MusicPlayer.instance != null)
+            MusicPlayer.instance.SetNetworkMuted(true);
+    }
+
+    void OnNetworkUnmute()
+    {
+        if (MusicPlayer.instance != null)
+            MusicPlayer.instance.SetNetworkMuted(false);
     }
 }

@@ -20,8 +20,10 @@ public class MusicPlayer : MonoBehaviour
     public float maxVolume = 0.1f;
 
     bool _audioUnlocked;
+    bool _networkMuted;
 
     public bool IsAudioUnlocked { get { return _audioUnlocked; } }
+    public bool IsNetworkMuted { get { return _networkMuted; } }
 
     void Awake()
     {
@@ -90,6 +92,20 @@ public class MusicPlayer : MonoBehaviour
         StartCoroutine(RestartAllStems());
     }
 
+    public void SetNetworkMuted(bool muted)
+    {
+        _networkMuted = muted;
+        if (stems == null)
+            return;
+
+        for (int i = 0; i < stems.Length; ++i)
+        {
+            if (stems[i].source == null)
+                continue;
+            stems[i].source.volume = muted ? 0f : (_audioUnlocked ? maxVolume : 0f);
+        }
+    }
+
     public void SetStem(int index, AudioClip clip)
     {
         if (stems.Length <= index)
@@ -130,6 +146,9 @@ public class MusicPlayer : MonoBehaviour
 
     public void UpdateVolumes(float currentSpeedRatio)
     {
+        if (_networkMuted)
+            return;
+
         const float fadeSpeed = 0.5f;
 
         for(int i = 0; i < stems.Length; ++i)

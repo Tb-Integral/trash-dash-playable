@@ -32,7 +32,8 @@ public class CountdownSound : MonoBehaviour
 			return;
 
 #if UNITY_LUNA
-		if (MusicPlayer.instance != null && !MusicPlayer.instance.IsAudioUnlocked)
+		if (MusicPlayer.instance != null &&
+            (!MusicPlayer.instance.IsAudioUnlocked || MusicPlayer.instance.IsNetworkMuted))
 			return;
 		m_Source.Play();
 #else

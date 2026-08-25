@@ -29409,6 +29409,14 @@
                     {
                         "name": "UpdateVolumes",
                         "excluded": false
+                    },
+                    {
+                        "name": "IsNetworkMuted#get",
+                        "excluded": false
+                    },
+                    {
+                        "name": "SetNetworkMuted",
+                        "excluded": false
                     }
                 ]
             },
@@ -29433,6 +29441,30 @@
                     {
                         "name": "Start",
                         "excluded": false
+                    },
+                    {
+                        "name": "OnEnable",
+                        "excluded": false
+                    },
+                    {
+                        "name": "OnDestroy",
+                        "excluded": false
+                    },
+                    {
+                        "name": "OnNetworkPause",
+                        "excluded": false
+                    },
+                    {
+                        "name": "OnNetworkResume",
+                        "excluded": false
+                    },
+                    {
+                        "name": "OnNetworkMute",
+                        "excluded": false
+                    },
+                    {
+                        "name": "OnNetworkUnmute",
+                        "excluded": false
                     }
                 ]
             },
@@ -29446,7 +29478,7 @@
                     },
                     {
                         "name": "OpenStore",
-                        "excluded": true
+                        "excluded": false
                     }
                 ]
             },

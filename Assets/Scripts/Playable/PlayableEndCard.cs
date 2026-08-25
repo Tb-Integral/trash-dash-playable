@@ -23,5 +23,9 @@ public class PlayableEndCard : MonoBehaviour
             title.text = won ? winTitle : failTitle;
         if (root != null)
             root.SetActive(true);
+
+#if UNITY_LUNA
+        Luna.Unity.LifeCycle.GameEnded();
+#endif
     }
 }
