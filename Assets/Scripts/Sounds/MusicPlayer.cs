@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 
+[DefaultExecutionOrder(-1000)]
 public class MusicPlayer : MonoBehaviour
 {
     [System.Serializable]
@@ -18,6 +19,10 @@ public class MusicPlayer : MonoBehaviour
     public Stem[] stems;
     public float maxVolume = 0.1f;
 
+    bool _audioUnlocked;
+
+    public bool IsAudioUnlocked { get { return _audioUnlocked; } }
+
     void Awake()
     {
         if (s_Instance != null)
@@ -30,22 +35,28 @@ public class MusicPlayer : MonoBehaviour
 
         // As this is one of the first script executed, set that here.
         Application.targetFrameRate = 30;
+#if UNITY_LUNA
+        _audioUnlocked = false;
+#else
+        _audioUnlocked = true;
         AudioListener.pause = false;
+#endif
         
         DontDestroyOnLoad(gameObject);
     }
 
-	void Start()
+		void Start()
 	{
 		PlayerData.Create ();
 
+#if !UNITY_LUNA
 		if (PlayerData.instance.masterVolume > float.MinValue) 
 		{
 			mixer.SetFloat ("MasterVolume", PlayerData.instance.masterVolume);
 			mixer.SetFloat ("MusicVolume", PlayerData.instance.musicVolume);
 			mixer.SetFloat ("MasterSFXVolume", PlayerData.instance.masterSFXVolume);
 		}
-        else 
+		else 
 		{
 			mixer.GetFloat ("MasterVolume", out PlayerData.instance.masterVolume);
 			mixer.GetFloat ("MusicVolume", out PlayerData.instance.musicVolume);
@@ -55,7 +66,29 @@ public class MusicPlayer : MonoBehaviour
 		}
 
 		StartCoroutine(RestartAllStems());
+#endif
 	}
+
+    void Update()
+    {
+        if (_audioUnlocked)
+            return;
+
+        if (Input.GetMouseButtonDown(0) ||
+            (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began))
+        {
+            UnlockAudio();
+        }
+    }
+
+    public void UnlockAudio()
+    {
+        if (_audioUnlocked)
+            return;
+
+        _audioUnlocked = true;
+        StartCoroutine(RestartAllStems());
+    }
 
     public void SetStem(int index, AudioClip clip)
     {
@@ -75,6 +108,9 @@ public class MusicPlayer : MonoBehaviour
 
     public IEnumerator RestartAllStems()
     {
+        if (!_audioUnlocked)
+            yield break;
+
         for (int i = 0; i < stems.Length; ++i)
         {
         	stems[i].source.clip = stems[i].clip;
