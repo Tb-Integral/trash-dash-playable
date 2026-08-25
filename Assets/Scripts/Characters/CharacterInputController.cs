@@ -8,7 +8,6 @@ using UnityEngine.AddressableAssets;
 public class CharacterInputController : MonoBehaviour
 {
     static int s_DeadHash = Animator.StringToHash ("Dead");
-	static int s_RunStartHash = Animator.StringToHash("runStart");
 	static int s_MovingHash = Animator.StringToHash("Moving");
 	static int s_JumpingHash = Animator.StringToHash("Jumping");
 	static int s_JumpingSpeedHash = Animator.StringToHash("JumpSpeed");
@@ -122,7 +121,7 @@ public class CharacterInputController : MonoBehaviour
 	public void Begin()
 	{
 		m_IsRunning = false;
-        character.animator.SetBool(s_DeadHash, false);
+		character.animator.SetBool(s_DeadHash, false);
 
 		characterCollider.Init ();
 
@@ -148,10 +147,14 @@ public class CharacterInputController : MonoBehaviour
     public void StartRunning()
     {   
 	    StartMoving();
+        LunaCatLegacyAnim legacy = GetLegacyAnim();
+        if (legacy != null)
+            legacy.PlayRun();
+
         if (character.animator)
         {
-            character.animator.Play(s_RunStartHash);
             character.animator.SetBool(s_MovingHash, true);
+            PlayCharacterAnim(character.animator, "runLoop");
         }
     }
 
@@ -280,21 +283,23 @@ public class CharacterInputController : MonoBehaviour
 				float ratio = (trackManager.worldDistance - m_JumpStart) / correctJumpLength;
 				if (ratio >= 1.0f)
 				{
-					m_Jumping = false;
-					character.animator.SetBool(s_JumpingHash, false);
+					StopJumping();
 				}
 				else
 				{
 					verticalTargetPosition.y = Mathf.Sin(ratio * Mathf.PI) * jumpHeight;
 				}
 			}
-			else if(!AudioListener.pause)//use AudioListener.pause as it is an easily accessible singleton & it is set when the app is in pause too
+			#if UNITY_LUNA
+			else
+#else
+			else if(!AudioListener.pause)
+#endif
 			{
 			    verticalTargetPosition.y = Mathf.MoveTowards (verticalTargetPosition.y, 0, k_GroundingSpeed * Time.deltaTime);
 				if (Mathf.Approximately(verticalTargetPosition.y, 0f))
 				{
-					character.animator.SetBool(s_JumpingHash, false);
-					m_Jumping = false;
+					StopJumping();
 				}
 			}
         }
@@ -325,12 +330,15 @@ public class CharacterInputController : MonoBehaviour
 			if (m_Sliding)
 				StopSliding();
 
-			float correctJumpLength = jumpLength * (1.0f + trackManager.speedRatio);
 			m_JumpStart = trackManager.worldDistance;
-            float animSpeed = k_TrackSpeedToJumpAnimSpeedRatio * (trackManager.speed / correctJumpLength);
 
-            character.animator.SetFloat(s_JumpingSpeedHash, animSpeed);
+            character.animator.SetFloat(s_JumpingSpeedHash, 1f);
             character.animator.SetBool(s_JumpingHash, true);
+            LunaCatLegacyAnim legacy = GetLegacyAnim();
+            if (legacy != null)
+                legacy.PlayJump();
+            else
+                PlayCharacterAnim(character.animator, "Jump");
 			m_Audio.PlayOneShot(character.jumpSound);
 			m_Jumping = true;
 			PlayableSwipeHint.NotifyJump();
@@ -343,6 +351,12 @@ public class CharacterInputController : MonoBehaviour
         {
             character.animator.SetBool(s_JumpingHash, false);
             m_Jumping = false;
+            if (m_IsRunning)
+            {
+                LunaCatLegacyAnim legacy = GetLegacyAnim();
+                if (legacy != null)
+                    legacy.PlayRun();
+            }
         }
     }
 
@@ -357,12 +371,15 @@ public class CharacterInputController : MonoBehaviour
 		    if (m_Jumping)
 		        StopJumping();
 
-            float correctSlideLength = slideLength * (1.0f + trackManager.speedRatio); 
 			m_SlideStart = trackManager.worldDistance;
-            float animSpeed = k_TrackSpeedToJumpAnimSpeedRatio * (trackManager.speed / correctSlideLength);
 
-			character.animator.SetFloat(s_JumpingSpeedHash, animSpeed);
+			character.animator.SetFloat(s_JumpingSpeedHash, 1f);
 			character.animator.SetBool(s_SlidingHash, true);
+			LunaCatLegacyAnim legacy = GetLegacyAnim();
+			if (legacy != null)
+				legacy.PlaySlide();
+			else
+				PlayCharacterAnim(character.animator, "Sliding");
 			m_Audio.PlayOneShot(slideSound);
 			m_Sliding = true;
 			PlayableSwipeHint.NotifySlide();
@@ -376,10 +393,36 @@ public class CharacterInputController : MonoBehaviour
 		if (m_Sliding)
 		{
 			character.animator.SetBool(s_SlidingHash, false);
+			LunaCatLegacyAnim legacy = GetLegacyAnim();
+			if (legacy != null)
+				legacy.PlayRun();
+			else
+				PlayCharacterAnim(character.animator, "runLoop");
 			m_Sliding = false;
 
 			characterCollider.Slide(false);
 		}
+	}
+
+	LunaCatLegacyAnim GetLegacyAnim()
+	{
+		if (character == null)
+			return null;
+		return character.GetComponent<LunaCatLegacyAnim>();
+	}
+
+	static void PlayCharacterAnim(Animator animator, string stateName)
+	{
+		if (animator == null)
+			return;
+
+		animator.enabled = true;
+		// Play$3 (name, layer, normalizedTime) is enabled in Playworks.
+		animator.Play(stateName, 0, 0f);
+		float dt = Time.unscaledDeltaTime;
+		if (dt < 0.001f)
+			dt = 0.016f;
+		animator.Update(dt);
 	}
 
 	public void ChangeLane(int direction)

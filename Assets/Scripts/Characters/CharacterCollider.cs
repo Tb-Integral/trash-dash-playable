@@ -43,8 +43,10 @@ public class CharacterCollider : MonoBehaviour
 	public List<GameObject> magnetCoins = new List<GameObject>();
 
     public bool tutorialHitObstacle {  get { return m_TutorialHitObstacle;} set { m_TutorialHitObstacle = value;} }
+    public bool deathAnimPlayed { get { return m_DeathPlayed; } }
 
     protected bool m_TutorialHitObstacle;
+    protected bool m_DeathPlayed;
 
     protected bool m_Invincible;
     protected DeathEvent m_DeathData;
@@ -75,6 +77,7 @@ public class CharacterCollider : MonoBehaviour
 
 		s_BlinkingValueHash = Shader.PropertyToID("_BlinkingValue");
 		m_Invincible = false;
+		m_DeathPlayed = false;
 	}
 
 	public void Slide(bool sliding)
@@ -151,16 +154,24 @@ public class CharacterCollider : MonoBehaviour
                 controller.currentLife -= 1;
             }
 
-            controller.character.animator.SetTrigger(s_HitHash);
-
-			if (controller.currentLife > 0)
-			{
-				m_Audio.PlayOneShot(controller.character.hitSound);
-                SetInvincible ();
-			}
-            // The collision killed the player, record all data to analytics.
-			else
-			{
+            Animator anim = controller.character.animator;
+            if (controller.currentLife > 0)
+            {
+                anim.ResetTrigger(s_HitHash);
+                anim.SetTrigger(s_HitHash);
+                anim.Play("Hit");
+                m_Audio.PlayOneShot(controller.character.hitSound);
+                SetInvincible();
+            }
+            else if (!m_DeathPlayed)
+            {
+                m_DeathPlayed = true;
+                LunaCatLegacyAnim legacy = controller.character.GetComponent<LunaCatLegacyAnim>();
+                if (legacy != null)
+                    legacy.HandOffToDeath();
+                anim.SetBool("Dead", true);
+                anim.Play("Death_1");
+                anim.Update(0.016f);
 				m_Audio.PlayOneShot(controller.character.deathSound);
 
 				m_DeathData.character = controller.character.characterName;
