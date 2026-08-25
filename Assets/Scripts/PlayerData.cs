@@ -213,6 +213,13 @@ public class PlayerData
 		    CoroutineHandler.StartStaticCoroutine(ThemeDatabase.LoadDatabase());
         }
 
+#if UNITY_LUNA
+        if (m_Instance.characters.Count == 0)
+            NewSave();
+        m_Instance.CheckMissionsCount();
+        return;
+#endif
+
         m_Instance.saveFile = Application.persistentDataPath + "/save.bin";
 
         if (File.Exists(m_Instance.saveFile))
@@ -389,6 +396,9 @@ public class PlayerData
 
     public void Save()
     {
+#if UNITY_LUNA
+        return;
+#else
         BinaryWriter w = new BinaryWriter(new FileStream(saveFile, FileMode.OpenOrCreate));
 
         w.Write(s_Version);
@@ -457,9 +467,8 @@ public class PlayerData
         w.Write(tutorialDone);
 
         w.Close();
+#endif
     }
-
-
 }
 
 // Helper class to cheat in the editor for test purpose

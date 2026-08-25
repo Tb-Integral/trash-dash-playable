@@ -28,6 +28,12 @@ public class TrackSegment : MonoBehaviour
     void OnEnable()
     {
         UpdateWorldLength();
+        Debug.Log(
+    name + " children=" + pathParent.childCount +
+    " len=" + m_WorldLength +
+    " entryLocal=" + pathParent.GetChild(0).localPosition +
+    " exitLocal=" + pathParent.GetChild(pathParent.childCount - 1).localPosition,
+    this);
 
 		GameObject obj = new GameObject("ObjectRoot");
 		obj.transform.SetParent(transform);
@@ -46,6 +52,17 @@ public class TrackSegment : MonoBehaviour
     }
 
 
+    Vector3 PathChildWorld(Transform child)
+    {
+        Vector3 inSegment = pathParent.localPosition + pathParent.localRotation * child.localPosition;
+        return transform.position + transform.rotation * inSegment;
+    }
+
+    Quaternion PathChildWorldRot(Transform child)
+    {
+        return transform.rotation * pathParent.localRotation * child.localRotation;
+    }
+
 	// Interpolation parameter t is clamped between 0 and 1.
 	public void GetPointAt(float t, out Vector3 pos, out Quaternion rot)
     {
@@ -55,17 +72,22 @@ public class TrackSegment : MonoBehaviour
         float segmentT = scaledT - index;
 
         Transform orig = pathParent.GetChild(index);
+        Vector3 origPos = PathChildWorld(orig);
+        Quaternion origRot = PathChildWorldRot(orig);
+
         if (index == pathParent.childCount - 1)
         {
-            pos = orig.position;
-            rot = orig.rotation;
+            pos = origPos;
+            rot = origRot;
             return;
         }
 
         Transform target = pathParent.GetChild(index + 1);
+        Vector3 targetPos = PathChildWorld(target);
+        Quaternion targetRot = PathChildWorldRot(target);
 
-        pos = Vector3.Lerp(orig.position, target.position, segmentT);
-        rot = Quaternion.Lerp(orig.rotation, target.rotation, segmentT);
+        pos = Vector3.Lerp(origPos, targetPos, segmentT);
+        rot = Quaternion.Lerp(origRot, targetRot, segmentT);
     }
 
     protected void UpdateWorldLength()
@@ -77,7 +99,7 @@ public class TrackSegment : MonoBehaviour
             Transform orig = pathParent.GetChild(i - 1);
             Transform end = pathParent.GetChild(i);
 
-            Vector3 vec = end.position - orig.position;
+            Vector3 vec = end.localPosition - orig.localPosition;
             m_WorldLength += vec.magnitude;
         }
     }

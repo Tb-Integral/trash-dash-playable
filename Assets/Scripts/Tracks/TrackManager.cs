@@ -33,8 +33,6 @@ public class TrackManager : MonoBehaviour
     static public TrackManager instance { get { return s_Instance; } }
     static protected TrackManager s_Instance;
 
-    static int s_StartHash = Animator.StringToHash("Start");
-
     public delegate int MultiplierModifier(int current);
     public MultiplierModifier modifyMultiply;
 
@@ -148,9 +146,35 @@ public class TrackManager : MonoBehaviour
         m_IsMoving = false;
     }
 
+    static void BindCharacterAnimator(Character player)
+    {
+        if (player == null)
+            return;
+
+        if (player.animator == null)
+            player.animator = player.GetComponent<Animator>();
+        if (player.animator == null)
+            player.animator = player.GetComponentInChildren<Animator>();
+        if (player.animator == null)
+            return;
+
+        player.animator.Rebind();
+        player.animator.Update(0f);
+    }
+
     IEnumerator WaitToStart()
     {
-        characterController.character.animator.Play(s_StartHash);
+        while (Time.timeScale <= 0f)
+            yield return null;
+
+        Animator anim = characterController.character.animator;
+        if (anim != null)
+        {
+            anim.enabled = true;
+            anim.Play("Start");
+            anim.Update(0.016f);
+        }
+
         float length = k_CountdownToStartLength;
         m_TimeToStart = length;
 
@@ -164,7 +188,6 @@ public class TrackManager : MonoBehaviour
 
         if (m_Rerun)
         {
-            // Make invincible on rerun, to avoid problems if the character died in front of an obstacle
             characterController.characterCollider.SetInvincible();
         }
 
@@ -195,18 +218,28 @@ public class TrackManager : MonoBehaviour
             }
             characterController.gameObject.SetActive(true);
 
-            //Addressables 1.0.1-preview
-            // Spawn the player
-            var op = Addressables.InstantiateAsync(PlayerData.instance.characters[PlayerData.instance.usedCharacter],
-                Vector3.zero,
-                Quaternion.identity);
-            yield return op;
-            if (op.Result == null || !(op.Result is GameObject))
+            Transform catParent = characterController.characterCollider.transform;
+            GameObject catGO = null;
+            if (PlayableSegmentQueue.IsActive)
+                catGO = LunaPlayableContent.InstantiateCat(catParent);
+#if !UNITY_LUNA
+            if (catGO == null)
+            {
+                var op = Addressables.InstantiateAsync(
+                    PlayerData.instance.characters[PlayerData.instance.usedCharacter],
+                    catParent);
+                yield return op;
+                catGO = op.Result as GameObject;
+            }
+#endif
+            if (catGO == null)
             {
                 Debug.LogWarning(string.Format("Unable to load character {0}.", PlayerData.instance.characters[PlayerData.instance.usedCharacter]));
                 yield break;
             }
-            Character player = op.Result.GetComponent<Character>();
+            Character player = catGO.GetComponent<Character>();
+            if (player == null)
+                player = catGO.GetComponentInChildren<Character>();
 
             player.SetupAccesory(PlayerData.instance.usedAccessory);
 
@@ -215,15 +248,21 @@ public class TrackManager : MonoBehaviour
 
             characterController.Init();
             characterController.CheatInvincible(invincible);
-            
-            //Instantiate(CharacterDatabase.GetCharacter(PlayerData.instance.characters[PlayerData.instance.usedCharacter]), Vector3.zero, Quaternion.identity);
-            player.transform.SetParent(characterController.characterCollider.transform, false);
+
+            if (player.transform.parent != catParent)
+                player.transform.SetParent(catParent, false);
+
+            BindCharacterAnimator(player);
             Camera.main.transform.SetParent(characterController.transform, true);
 
             if (m_IsTutorial)
                 m_CurrentThemeData = tutorialThemeData;
             else
+#if UNITY_LUNA
+                m_CurrentThemeData = LunaPlayableContent.DayTheme;
+#else
                 m_CurrentThemeData = ThemeDatabase.GetThemeData(PlayerData.instance.themes[PlayerData.instance.usedTheme]);
+#endif
 
             m_CurrentZone = 0;
             m_CurrentZoneDistance = 0;
@@ -311,6 +350,9 @@ public class TrackManager : MonoBehaviour
         int desiredSegmentCount = m_IsTutorial ? 4 : k_DesiredSegmentCount;
 
         if (PlayableSegmentQueue.IsActive)
+            desiredSegmentCount = PlayableSegmentQueue.TotalCount;
+            
+        if (PlayableSegmentQueue.IsActive)
         {
             if (!_playableSegmentSpawnInProgress &&
                 _spawnedSegments < desiredSegmentCount &&
@@ -397,6 +439,9 @@ public class TrackManager : MonoBehaviour
         // Floating origin implementation
         // Move the whole world back to 0,0,0 when we get too far away.
         bool needRecenter = currentPos.sqrMagnitude > k_FloatingOriginThreshold;
+
+        if (PlayableSegmentQueue.IsActive)
+    needRecenter = false;
 
         // Parallax Handling
         if (parallaxRoot != null)
@@ -544,6 +589,16 @@ public class TrackManager : MonoBehaviour
             chosenSegment = m_CurrentThemeData.zones[m_CurrentZone].prefabList[segmentUse];
         }
 
+#if UNITY_LUNA
+        GameObject segmentGO = LunaPlayableContent.InstantiateSegment(
+            PlayableSegmentQueue.LastConsumedIndex, _offScreenSpawnPos);
+        if (segmentGO == null)
+        {
+            Debug.LogWarning("Unable to load segment.");
+            yield break;
+        }
+        TrackSegment newSegment = segmentGO.GetComponent<TrackSegment>();
+#else
         AsyncOperationHandle segmentToUseOp = chosenSegment.InstantiateAsync(_offScreenSpawnPos, Quaternion.identity);
         yield return segmentToUseOp;
         if (segmentToUseOp.Result == null || !(segmentToUseOp.Result is GameObject))
@@ -552,6 +607,7 @@ public class TrackManager : MonoBehaviour
             yield break;
         }
         TrackSegment newSegment = (segmentToUseOp.Result as GameObject).GetComponent<TrackSegment>();
+#endif
 
         Vector3 currentExitPoint;
         Quaternion currentExitRotation;
@@ -574,6 +630,7 @@ public class TrackManager : MonoBehaviour
 
         Vector3 pos = currentExitPoint + (newSegment.transform.position - entryPoint);
         newSegment.transform.position = pos;
+        Debug.Log(newSegment.name + " root=" + newSegment.transform.position);
         newSegment.manager = this;
 
         if (PlayableSegmentQueue.IsActive)
@@ -610,6 +667,13 @@ public class TrackManager : MonoBehaviour
 
     public void SpawnObstacle(TrackSegment segment)
     {
+#if UNITY_LUNA
+        int lunaCount = segment.obstaclePositions != null ? segment.obstaclePositions.Length : 0;
+        if (lunaCount == 0)
+            lunaCount = 1;
+        for (int i = 0; i < lunaCount; ++i)
+            StartCoroutine(SpawnFromAssetReference(null, segment, i));
+#else
         if (segment.possibleObstacles.Length != 0)
         {
             for (int i = 0; i < segment.obstaclePositions.Length; ++i)
@@ -618,22 +682,33 @@ public class TrackManager : MonoBehaviour
                 StartCoroutine(SpawnFromAssetReference(assetRef, segment, i));
             }
         }
+#endif
 
         StartCoroutine(SpawnCoinAndPowerup(segment));
     }
 
     private IEnumerator SpawnFromAssetReference(AssetReference reference, TrackSegment segment, int posIndex)
     {
+#if UNITY_LUNA
+        GameObject obj = LunaPlayableContent.GetObstaclePrefabForSegment(segment);
+#else
         AsyncOperationHandle op = Addressables.LoadAssetAsync<GameObject>(reference);
-        yield return op; 
+        yield return op;
         GameObject obj = op.Result as GameObject;
-        
+#endif
         if (obj != null)
         {
             Obstacle obstacle = obj.GetComponent<Obstacle>();
             if (obstacle != null)
-                yield return obstacle.Spawn(segment, segment.obstaclePositions[posIndex]);
+            {
+                float t = 0.5f;
+                if (segment.obstaclePositions != null && posIndex < segment.obstaclePositions.Length)
+                    t = segment.obstaclePositions[posIndex];
+                yield return obstacle.Spawn(segment, t);
+            }
         }
+        else
+            Debug.LogWarning("Playable obstacle prefab missing for " + segment.name);
     }
 
     public IEnumerator SpawnCoinAndPowerup(TrackSegment segment)

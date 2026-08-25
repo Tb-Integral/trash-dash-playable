@@ -11,6 +11,9 @@ public class AllLaneObstacle: Obstacle
 		Vector3 position;
 		Quaternion rotation;
 		segment.GetPointAt(t, out position, out rotation);
+        #if UNITY_LUNA
+        GameObject obj = Instantiate(gameObject, position, rotation);
+#else
         AsyncOperationHandle op = Addressables.InstantiateAsync(gameObject.name, position, rotation);
         yield return op;
 	    if (op.Result == null || !(op.Result is GameObject))
@@ -19,11 +22,14 @@ public class AllLaneObstacle: Obstacle
 	        yield break;
 	    }
         GameObject obj = op.Result as GameObject;
+#endif
         obj.transform.SetParent(segment.objectRoot, true);
 
         //TODO : remove that hack related to #issue7
         Vector3 oldPos = obj.transform.position;
         obj.transform.position += Vector3.back;
         obj.transform.position = oldPos;
+
+        yield break;
     }
 }

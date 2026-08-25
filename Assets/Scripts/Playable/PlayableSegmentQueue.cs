@@ -7,6 +7,7 @@ public class PlayableSegmentQueue : MonoBehaviour
 
     [SerializeField] AssetReference[] segments;
     [SerializeField] int authoredCount = 5;
+    public static int LastConsumedIndex => Instance != null ? Instance._index - 1 : -1;
 
     int _index;
 

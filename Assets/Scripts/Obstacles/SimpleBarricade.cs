@@ -31,6 +31,9 @@ public class SimpleBarricade : Obstacle
             int lane = startLane + i;
             lane = lane > k_RightMostLaneIndex ? k_LeftMostLaneIndex : lane;
 
+            #if UNITY_LUNA
+            GameObject obj = Instantiate(gameObject, position, rotation);
+#else
             AsyncOperationHandle op = Addressables.InstantiateAsync(gameObject.name, position, rotation);
             yield return op;
             if (op.Result == null || !(op.Result is GameObject))
@@ -39,6 +42,7 @@ public class SimpleBarricade : Obstacle
                 yield break;
             }
             GameObject obj = op.Result as GameObject;
+#endif
 
             if (obj == null)
                 Debug.Log(gameObject.name);
@@ -54,5 +58,7 @@ public class SimpleBarricade : Obstacle
                 obj.transform.position = oldPos;
             }
         }
+
+        yield break;
     }
 }
